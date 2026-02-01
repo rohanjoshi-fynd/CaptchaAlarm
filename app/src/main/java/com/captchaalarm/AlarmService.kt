@@ -8,8 +8,9 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
-import android.media.MediaPlayer
-import android.media.RingtoneManager
+import android.media.AudioFormat
+import android.media.AudioManager
+import android.media.AudioTrack
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -17,12 +18,14 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
+import kotlin.math.sin
 
 class AlarmService : Service() {
 
-    private var mediaPlayer: MediaPlayer? = null
+    private var audioTrack: AudioTrack? = null
     private var vibrator: Vibrator? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var isPlaying = false
 
     companion object {
         const val CHANNEL_ID = "captcha_alarm_channel"
@@ -46,8 +49,9 @@ class AlarmService : Service() {
 
         val notification = buildNotification()
         startForeground(NOTIFICATION_ID, notification)
-        startAlarmSound()
-        startVibration()
+        setMaxVolume()
+        startHarshAlarmSound()
+        startAggressiveVibration()
 
         return START_STICKY
     }
@@ -77,8 +81,8 @@ class AlarmService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Alarm Ringing!")
-            .setContentText("Solve the captcha to dismiss")
+            .setContentTitle("ALARM! WAKE UP!")
+            .setContentText("Solve 3 captcha challenges to dismiss")
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -88,30 +92,105 @@ class AlarmService : Service() {
             .build()
     }
 
-    private fun startAlarmSound() {
-        try {
-            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+    private fun setMaxVolume() {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+        audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxVolume, 0)
+    }
 
-            mediaPlayer = MediaPlayer().apply {
-                setAudioAttributes(
+    private fun startHarshAlarmSound() {
+        isPlaying = true
+        Thread {
+            val sampleRate = 44100
+            // Generate a harsh, jarring alarm pattern:
+            // alternating high-pitched tones with dissonant intervals
+            val oneDuration = sampleRate / 2  // 0.5 second per tone burst
+            val patternSamples = sampleRate * 4 // 4 seconds total pattern then loop
+            val buffer = ShortArray(patternSamples)
+
+            for (i in 0 until patternSamples) {
+                val timeInPattern = i.toFloat() / sampleRate
+                val sample: Double
+
+                when {
+                    // Harsh high beep (0-0.4s) - 2500Hz + 3100Hz dissonant
+                    timeInPattern < 0.4f -> {
+                        sample = 0.5 * sin(2.0 * Math.PI * 2500.0 * i / sampleRate) +
+                                0.5 * sin(2.0 * Math.PI * 3100.0 * i / sampleRate)
+                    }
+                    // Brief silence (0.4-0.5s)
+                    timeInPattern < 0.5f -> {
+                        sample = 0.0
+                    }
+                    // Even higher harsh beep (0.5-0.9s) - 3000Hz + 3700Hz
+                    timeInPattern < 0.9f -> {
+                        sample = 0.5 * sin(2.0 * Math.PI * 3000.0 * i / sampleRate) +
+                                0.5 * sin(2.0 * Math.PI * 3700.0 * i / sampleRate)
+                    }
+                    // Brief silence (0.9-1.0s)
+                    timeInPattern < 1.0f -> {
+                        sample = 0.0
+                    }
+                    // Rapid staccato (1.0-2.0s) - fast on/off at 2800Hz
+                    timeInPattern < 2.0f -> {
+                        val subTime = ((i - sampleRate) % (sampleRate / 10))
+                        sample = if (subTime < sampleRate / 20) {
+                            0.6 * sin(2.0 * Math.PI * 2800.0 * i / sampleRate) +
+                            0.4 * sin(2.0 * Math.PI * 1400.0 * i / sampleRate)
+                        } else 0.0
+                    }
+                    // Brief silence (2.0-2.2s)
+                    timeInPattern < 2.2f -> {
+                        sample = 0.0
+                    }
+                    // Sweeping siren (2.2-3.6s) - frequency sweep 2000-4000Hz
+                    timeInPattern < 3.6f -> {
+                        val sweepProgress = (timeInPattern - 2.2f) / 1.4f
+                        val freq = 2000.0 + 2000.0 * sweepProgress
+                        sample = sin(2.0 * Math.PI * freq * i / sampleRate)
+                    }
+                    // Silence gap (3.6-4.0s)
+                    else -> {
+                        sample = 0.0
+                    }
+                }
+
+                buffer[i] = (sample * Short.MAX_VALUE * 0.9).toInt().toShort()
+            }
+
+            val minBufSize = AudioTrack.getMinBufferSize(
+                sampleRate,
+                AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.ENCODING_PCM_16BIT
+            )
+
+            audioTrack = AudioTrack.Builder()
+                .setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ALARM)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .build()
                 )
-                setDataSource(this@AlarmService, alarmUri)
-                isLooping = true
-                prepare()
-                start()
+                .setAudioFormat(
+                    AudioFormat.Builder()
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setSampleRate(sampleRate)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                        .build()
+                )
+                .setBufferSizeInBytes(maxOf(buffer.size * 2, minBufSize))
+                .setTransferMode(AudioTrack.MODE_STATIC)
+                .build()
+
+            audioTrack?.apply {
+                write(buffer, 0, buffer.size)
+                setLoopPoints(0, buffer.size, -1) // loop forever
+                play()
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        }.start()
     }
 
-    private fun startVibration() {
+    private fun startAggressiveVibration() {
         vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
             vibratorManager.defaultVibrator
@@ -120,9 +199,11 @@ class AlarmService : Service() {
             getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
 
-        val pattern = longArrayOf(0, 500, 200, 500, 200, 500)
+        // Aggressive vibration: short intense bursts
+        val pattern = longArrayOf(0, 300, 100, 300, 100, 600, 200, 300, 100, 300, 100, 600, 400)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator?.vibrate(VibrationEffect.createWaveform(pattern, 0))
+            val amplitudes = intArrayOf(0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0)
+            vibrator?.vibrate(VibrationEffect.createWaveform(pattern, amplitudes, 0))
         } else {
             @Suppress("DEPRECATION")
             vibrator?.vibrate(pattern, 0)
@@ -135,16 +216,20 @@ class AlarmService : Service() {
             PowerManager.PARTIAL_WAKE_LOCK,
             "CaptchaAlarm::AlarmWakeLock"
         ).apply {
-            acquire(10 * 60 * 1000L) // 10 minutes max
+            acquire(10 * 60 * 1000L)
         }
     }
 
     private fun stopAlarm() {
-        mediaPlayer?.apply {
-            if (isPlaying) stop()
-            release()
+        isPlaying = false
+
+        audioTrack?.apply {
+            try {
+                stop()
+                release()
+            } catch (_: Exception) {}
         }
-        mediaPlayer = null
+        audioTrack = null
 
         vibrator?.cancel()
         vibrator = null
