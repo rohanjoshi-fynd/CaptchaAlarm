@@ -1,0 +1,4 @@
+#Mon Feb 02 12:15:13 IST 2026
+base.0=/Users/rohanjoshi/CaptchaAlarm/app/build/intermediates/dex/release/mergeDexRelease/classes.dex
+renamed.0=classes.dex
+path.0=classes.dex

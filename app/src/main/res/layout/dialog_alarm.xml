@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TimePicker
+            android:id="@+id/dialogTimePicker"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:timePickerMode="spinner" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="Label (optional)">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/dialogLabelInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textCapSentences"
+                android:maxLines="1" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Repeat"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <ToggleButton
+                android:id="@+id/toggleSun"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:textOn="S"
+                android:textOff="S"
+                android:textSize="12sp"
+                android:layout_margin="2dp" />
+
+            <ToggleButton
+                android:id="@+id/toggleMon"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:textOn="M"
+                android:textOff="M"
+                android:textSize="12sp"
+                android:layout_margin="2dp" />
+
+            <ToggleButton
+                android:id="@+id/toggleTue"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:textOn="T"
+                android:textOff="T"
+                android:textSize="12sp"
+                android:layout_margin="2dp" />
+
+            <ToggleButton
+                android:id="@+id/toggleWed"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:textOn="W"
+                android:textOff="W"
+                android:textSize="12sp"
+                android:layout_margin="2dp" />
+
+            <ToggleButton
+                android:id="@+id/toggleThu"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:textOn="T"
+                android:textOff="T"
+                android:textSize="12sp"
+                android:layout_margin="2dp" />
+
+            <ToggleButton
+                android:id="@+id/toggleFri"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:textOn="F"
+                android:textOff="F"
+                android:textSize="12sp"
+                android:layout_margin="2dp" />
+
+            <ToggleButton
+                android:id="@+id/toggleSat"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:textOn="S"
+                android:textOff="S"
+                android:textSize="12sp"
+                android:layout_margin="2dp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</ScrollView>

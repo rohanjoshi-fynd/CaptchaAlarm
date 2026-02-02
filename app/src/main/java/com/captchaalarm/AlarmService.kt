@@ -47,7 +47,8 @@ class AlarmService : Service() {
             return START_NOT_STICKY
         }
 
-        val notification = buildNotification()
+        val label = intent?.getStringExtra("ALARM_LABEL") ?: ""
+        val notification = buildNotification(label)
         startForeground(NOTIFICATION_ID, notification)
         setMaxVolume()
         startHarshAlarmSound()
@@ -71,7 +72,7 @@ class AlarmService : Service() {
         }
     }
 
-    private fun buildNotification(): Notification {
+    private fun buildNotification(label: String = ""): Notification {
         val captchaIntent = Intent(this, CaptchaActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
@@ -80,8 +81,9 @@ class AlarmService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val title = if (label.isNotBlank()) "ALARM: $label" else "ALARM! WAKE UP!"
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("ALARM! WAKE UP!")
+            .setContentTitle(title)
             .setContentText("Solve 3 captcha challenges to dismiss")
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setPriority(NotificationCompat.PRIORITY_MAX)
