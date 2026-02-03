@@ -12,6 +12,9 @@ class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         val alarmId = intent?.getIntExtra("ALARM_ID", -1) ?: -1
         val alarmLabel = intent?.getStringExtra("ALARM_LABEL") ?: ""
+        val captchaEnabled = intent?.getBooleanExtra("CAPTCHA_ENABLED", true) ?: true
+        val mathEnabled = intent?.getBooleanExtra("MATH_ENABLED", true) ?: true
+        val scrambleEnabled = intent?.getBooleanExtra("SCRAMBLE_ENABLED", true) ?: true
 
         val serviceIntent = Intent(context, AlarmService::class.java).apply {
             putExtra("ALARM_LABEL", alarmLabel)
@@ -26,6 +29,9 @@ class AlarmReceiver : BroadcastReceiver() {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra("ALARM_ID", alarmId)
+            putExtra("CAPTCHA_ENABLED", captchaEnabled)
+            putExtra("MATH_ENABLED", mathEnabled)
+            putExtra("SCRAMBLE_ENABLED", scrambleEnabled)
         }
         context.startActivity(captchaIntent)
 

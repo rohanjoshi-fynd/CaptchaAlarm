@@ -16,6 +16,9 @@ object AlarmScheduler {
         val intent = Intent(context, AlarmReceiver::class.java).apply {
             putExtra("ALARM_ID", alarm.id)
             putExtra("ALARM_LABEL", alarm.label)
+            putExtra("CAPTCHA_ENABLED", alarm.captchaEnabled)
+            putExtra("MATH_ENABLED", alarm.mathEnabled)
+            putExtra("SCRAMBLE_ENABLED", alarm.scrambleEnabled)
         }
         val pendingIntent = PendingIntent.getBroadcast(
             context,

@@ -12,6 +12,7 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -25,12 +26,23 @@ class CaptchaActivity : AppCompatActivity() {
     private lateinit var captchaImage: ImageView
     private lateinit var answerInput: EditText
     private lateinit var submitButton: Button
+    private lateinit var progressDots: LinearLayout
     private lateinit var dot1: View
     private lateinit var dot2: View
     private lateinit var dot3: View
 
-    private var currentStage = 1
+    private var currentStageIndex = 0
     private var correctAnswer = ""
+
+    private var captchaEnabled = true
+    private var mathEnabled = true
+    private var scrambleEnabled = true
+
+    private lateinit var enabledChallenges: List<ChallengeType>
+
+    enum class ChallengeType {
+        CAPTCHA, MATH, SCRAMBLE
+    }
 
     private val words = listOf(
         "PLANET", "BRIDGE", "CASTLE", "DRAGON", "FOREST",
@@ -46,16 +58,32 @@ class CaptchaActivity : AppCompatActivity() {
         setupWindowFlags()
         setContentView(R.layout.activity_captcha)
 
+        captchaEnabled = intent.getBooleanExtra("CAPTCHA_ENABLED", true)
+        mathEnabled = intent.getBooleanExtra("MATH_ENABLED", true)
+        scrambleEnabled = intent.getBooleanExtra("SCRAMBLE_ENABLED", true)
+
+        enabledChallenges = buildList {
+            if (captchaEnabled) add(ChallengeType.CAPTCHA)
+            if (mathEnabled) add(ChallengeType.MATH)
+            if (scrambleEnabled) add(ChallengeType.SCRAMBLE)
+        }
+
+        if (enabledChallenges.isEmpty()) {
+            enabledChallenges = listOf(ChallengeType.CAPTCHA)
+        }
+
         stageText = findViewById(R.id.stageText)
         instructionText = findViewById(R.id.instructionText)
         problemText = findViewById(R.id.problemText)
         captchaImage = findViewById(R.id.captchaImage)
         answerInput = findViewById(R.id.answerInput)
         submitButton = findViewById(R.id.submitButton)
+        progressDots = findViewById(R.id.progressDots)
         dot1 = findViewById(R.id.dot1)
         dot2 = findViewById(R.id.dot2)
         dot3 = findViewById(R.id.dot3)
 
+        setupProgressDots()
         setupStage()
 
         submitButton.setOnClickListener { checkAnswer() }
@@ -78,45 +106,44 @@ class CaptchaActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
+    private fun setupProgressDots() {
+        val totalChallenges = enabledChallenges.size
+        dot1.visibility = if (totalChallenges >= 1) View.VISIBLE else View.GONE
+        dot2.visibility = if (totalChallenges >= 2) View.VISIBLE else View.GONE
+        dot3.visibility = if (totalChallenges >= 3) View.VISIBLE else View.GONE
+    }
+
     private fun setupStage() {
-        stageText.text = "Stage $currentStage of 3"
+        val totalChallenges = enabledChallenges.size
+        stageText.text = "Stage ${currentStageIndex + 1} of $totalChallenges"
         updateDots()
         answerInput.text.clear()
 
-        when (currentStage) {
-            1 -> setupDistortedTextCaptcha()
-            2 -> setupMultiplicationChallenge()
-            3 -> setupScrambledWord()
+        when (enabledChallenges[currentStageIndex]) {
+            ChallengeType.CAPTCHA -> setupDistortedTextCaptcha()
+            ChallengeType.MATH -> setupMultiplicationChallenge()
+            ChallengeType.SCRAMBLE -> setupScrambledWord()
         }
 
         answerInput.requestFocus()
     }
 
     private fun updateDots() {
-        dot1.setBackgroundResource(
-            when {
-                currentStage > 1 -> R.drawable.dot_completed
-                currentStage == 1 -> R.drawable.dot_active
-                else -> R.drawable.dot_inactive
+        val dots = listOf(dot1, dot2, dot3)
+        for (i in dots.indices) {
+            if (i >= enabledChallenges.size) {
+                dots[i].visibility = View.GONE
+                continue
             }
-        )
-        dot2.setBackgroundResource(
-            when {
-                currentStage > 2 -> R.drawable.dot_completed
-                currentStage == 2 -> R.drawable.dot_active
-                else -> R.drawable.dot_inactive
-            }
-        )
-        dot3.setBackgroundResource(
-            when {
-                currentStage > 3 -> R.drawable.dot_completed
-                currentStage == 3 -> R.drawable.dot_active
-                else -> R.drawable.dot_inactive
-            }
-        )
+            dots[i].setBackgroundResource(
+                when {
+                    currentStageIndex > i -> R.drawable.dot_completed
+                    currentStageIndex == i -> R.drawable.dot_active
+                    else -> R.drawable.dot_inactive
+                }
+            )
+        }
     }
-
-    // --- Stage 1: Distorted Text CAPTCHA ---
 
     private fun setupDistortedTextCaptcha() {
         instructionText.text = "Type the distorted text below:"
@@ -139,7 +166,6 @@ class CaptchaActivity : AppCompatActivity() {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        // Background with noise
         canvas.drawColor(Color.rgb(240, 240, 240))
         val noisePaint = Paint()
         for (i in 0..800) {
@@ -156,7 +182,6 @@ class CaptchaActivity : AppCompatActivity() {
             )
         }
 
-        // Random lines through the image
         val linePaint = Paint().apply {
             strokeWidth = 2f
             style = Paint.Style.STROKE
@@ -174,7 +199,6 @@ class CaptchaActivity : AppCompatActivity() {
             )
         }
 
-        // Draw each character with individual distortion
         val textPaint = Paint().apply {
             isAntiAlias = true
             textSize = 64f
@@ -200,7 +224,6 @@ class CaptchaActivity : AppCompatActivity() {
             canvas.restore()
         }
 
-        // More noise on top
         for (i in 0..400) {
             noisePaint.color = Color.rgb(
                 Random.nextInt(100, 200),
@@ -218,8 +241,6 @@ class CaptchaActivity : AppCompatActivity() {
         return bitmap
     }
 
-    // --- Stage 2: 2-digit x 2-digit Multiplication ---
-
     private fun setupMultiplicationChallenge() {
         instructionText.text = "Solve the multiplication:"
         answerInput.inputType = InputType.TYPE_CLASS_NUMBER
@@ -235,8 +256,6 @@ class CaptchaActivity : AppCompatActivity() {
         problemText.text = "$a × $b = ?"
     }
 
-    // --- Stage 3: Scrambled Word ---
-
     private fun setupScrambledWord() {
         instructionText.text = "Unscramble this word:"
         answerInput.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
@@ -249,14 +268,11 @@ class CaptchaActivity : AppCompatActivity() {
         correctAnswer = word
 
         var scrambled = word.toList().shuffled().joinToString("")
-        // Make sure it's actually scrambled
         while (scrambled == word) {
             scrambled = word.toList().shuffled().joinToString("")
         }
         problemText.text = scrambled
     }
-
-    // --- Answer Checking ---
 
     private fun checkAnswer() {
         val userAnswer = answerInput.text.toString().trim().uppercase()
@@ -267,8 +283,8 @@ class CaptchaActivity : AppCompatActivity() {
         }
 
         if (userAnswer == correctAnswer.uppercase()) {
-            if (currentStage < 3) {
-                currentStage++
+            if (currentStageIndex < enabledChallenges.size - 1) {
+                currentStageIndex++
                 Toast.makeText(this, "Correct! Next challenge...", Toast.LENGTH_SHORT).show()
                 setupStage()
             } else {
@@ -277,7 +293,6 @@ class CaptchaActivity : AppCompatActivity() {
         } else {
             shakeView()
             Toast.makeText(this, "Wrong! Try again.", Toast.LENGTH_SHORT).show()
-            // Regenerate same stage type
             setupStage()
         }
     }
@@ -302,6 +317,6 @@ class CaptchaActivity : AppCompatActivity() {
 
     @Deprecated("Use OnBackPressedDispatcher")
     override fun onBackPressed() {
-        Toast.makeText(this, "Solve all 3 challenges to dismiss!", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Solve all challenges to dismiss!", Toast.LENGTH_SHORT).show()
     }
 }

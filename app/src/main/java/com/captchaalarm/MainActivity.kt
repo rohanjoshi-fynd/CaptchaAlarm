@@ -22,6 +22,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.captchaalarm.data.AlarmDatabase
 import com.captchaalarm.data.AlarmEntity
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
 import kotlin.concurrent.thread
 
@@ -134,6 +135,22 @@ class MainActivity : AppCompatActivity() {
             7 to dialogView.findViewById<ToggleButton>(R.id.toggleSat)
         )
 
+        val switchCaptcha = dialogView.findViewById<SwitchMaterial>(R.id.switchCaptcha)
+        val switchMath = dialogView.findViewById<SwitchMaterial>(R.id.switchMath)
+        val switchScramble = dialogView.findViewById<SwitchMaterial>(R.id.switchScramble)
+
+        // Ensure at least one challenge is always enabled
+        val enforceMinOne = { changedSwitch: SwitchMaterial ->
+            val enabledCount = listOf(switchCaptcha, switchMath, switchScramble).count { it.isChecked }
+            if (enabledCount == 0) {
+                changedSwitch.isChecked = true
+                Toast.makeText(this, "At least one challenge required", Toast.LENGTH_SHORT).show()
+            }
+        }
+        switchCaptcha.setOnCheckedChangeListener { _, _ -> enforceMinOne(switchCaptcha) }
+        switchMath.setOnCheckedChangeListener { _, _ -> enforceMinOne(switchMath) }
+        switchScramble.setOnCheckedChangeListener { _, _ -> enforceMinOne(switchScramble) }
+
         timePicker.setIs24HourView(false)
 
         if (existingAlarm != null) {
@@ -145,6 +162,9 @@ class MainActivity : AppCompatActivity() {
             dayToggles.forEach { (day, toggle) ->
                 toggle.isChecked = day in selectedDays
             }
+            switchCaptcha.isChecked = existingAlarm.captchaEnabled
+            switchMath.isChecked = existingAlarm.mathEnabled
+            switchScramble.isChecked = existingAlarm.scrambleEnabled
         }
 
         val title = if (existingAlarm != null) "Edit Alarm" else "New Alarm"
@@ -162,12 +182,19 @@ class MainActivity : AppCompatActivity() {
                     .sorted()
                     .joinToString(",")
 
+                val captchaOn = switchCaptcha.isChecked
+                val mathOn = switchMath.isChecked
+                val scrambleOn = switchScramble.isChecked
+
                 thread {
                     if (existingAlarm != null) {
                         val updated = existingAlarm.copy(
                             hour = hour, minute = minute,
                             label = label, daysOfWeek = days,
-                            isEnabled = true
+                            isEnabled = true,
+                            captchaEnabled = captchaOn,
+                            mathEnabled = mathOn,
+                            scrambleEnabled = scrambleOn
                         )
                         dao.update(updated)
                         AlarmScheduler.cancel(this, existingAlarm.id)
@@ -176,7 +203,10 @@ class MainActivity : AppCompatActivity() {
                         val newAlarm = AlarmEntity(
                             hour = hour, minute = minute,
                             label = label, daysOfWeek = days,
-                            isEnabled = true
+                            isEnabled = true,
+                            captchaEnabled = captchaOn,
+                            mathEnabled = mathOn,
+                            scrambleEnabled = scrambleOn
                         )
                         val id = dao.insert(newAlarm).toInt()
                         val saved = newAlarm.copy(id = id)

@@ -11,5 +11,8 @@ data class AlarmEntity(
     val minute: Int,
     val label: String = "",
     val daysOfWeek: String = "",
-    val isEnabled: Boolean = true
+    val isEnabled: Boolean = true,
+    val captchaEnabled: Boolean = true,
+    val mathEnabled: Boolean = true,
+    val scrambleEnabled: Boolean = true
 )
